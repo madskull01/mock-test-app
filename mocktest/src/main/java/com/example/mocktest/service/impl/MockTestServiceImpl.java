@@ -7,7 +7,10 @@ import com.example.mocktest.model.MockTest;
 import com.example.mocktest.repository.MockTestRepository;
 import com.example.mocktest.repository.TestQuestionRepository;
 import com.example.mocktest.service.MockTestService;
+import com.example.mocktest.model.enums.Difficulty;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +53,7 @@ public class MockTestServiceImpl
                         request.getTotalMarks())
                 .passingMarks(
                         request.getPassingMarks())
+                .freeAccess(request.isFreeAccess())
                 .active(true)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
@@ -88,6 +92,30 @@ public class MockTestServiceImpl
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Page<MockTestResponse> getActiveTestCatalog(
+            String search,
+            Long subjectId,
+            Long sectionId,
+            Difficulty difficulty,
+            String durationType,
+            Pageable pageable) {
+
+        String normalizedSearch = search == null || search.isBlank()
+                ? null
+                : search.trim();
+
+        return mockTestRepository.findActiveCatalog(
+                        normalizedSearch,
+                        subjectId,
+                        sectionId,
+                        difficulty,
+                        durationType,
+                        pageable)
+                .map(this::mapToResponse);
+    }
+
+    @Override
     public MockTestResponse updateTest(
             Long id,
             UpdateMockTestRequest request) {
@@ -109,6 +137,9 @@ public class MockTestServiceImpl
                 request.getTotalMarks());
         test.setPassingMarks(
                 request.getPassingMarks());
+        if (request.getFreeAccess() != null) {
+            test.setFreeAccess(request.getFreeAccess());
+        }
         test.setActive(request.isActive());
         test.setUpdatedAt(LocalDateTime.now());
 
@@ -150,6 +181,7 @@ public class MockTestServiceImpl
                         test.getTotalMarks())
                 .passingMarks(
                         test.getPassingMarks())
+                .freeAccess(test.isFreeAccess())
                 .active(test.isActive())
                 .questionCount(questionCount)
                 .createdAt(test.getCreatedAt())

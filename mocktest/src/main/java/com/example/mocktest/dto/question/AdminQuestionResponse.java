@@ -14,6 +14,8 @@ public class AdminQuestionResponse {
 
     private String questionText;
 
+    private String imageUrl;
+
     private String explanation;
 
     private Integer marks;

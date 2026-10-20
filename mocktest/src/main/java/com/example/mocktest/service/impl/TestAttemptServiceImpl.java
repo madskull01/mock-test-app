@@ -1,6 +1,8 @@
 package com.example.mocktest.service.impl;
 
 import com.example.mocktest.dto.attempt.AttemptHistoryResponse;
+import com.example.mocktest.dto.attempt.AnswerOptionReviewResponse;
+import com.example.mocktest.dto.attempt.QuestionReviewResponse;
 import com.example.mocktest.dto.attempt.StartTestResponse;
 import com.example.mocktest.dto.attempt.TestResultResponse;
 import com.example.mocktest.dto.mocktest.StudentTestResponse;
@@ -10,6 +12,9 @@ import com.example.mocktest.model.*;
 import com.example.mocktest.model.enums.AttemptStatus;
 import com.example.mocktest.repository.*;
 import com.example.mocktest.service.TestAttemptService;
+import com.example.mocktest.service.payment.PaidSection;
+import com.example.mocktest.service.payment.PaymentService;
+import com.example.mocktest.exception.ForbiddenException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +33,7 @@ public class TestAttemptServiceImpl
     private final MockTestRepository mockTestRepository;
     private final TestQuestionRepository testQuestionRepository;
     private final UserAnswerRepository userAnswerRepository;
+    private final PaymentService paymentService;
 
     @Override
     public StartTestResponse startTest(
@@ -50,14 +56,28 @@ public class TestAttemptServiceImpl
                     "This test is not active");
         }
 
-        long questionCount =
+        List<TestQuestion> testQuestions =
                 testQuestionRepository
-                        .countByMockTestId(testId);
+                        .findByMockTestIdOrderByQuestionOrder(testId);
+        long questionCount = testQuestions.size();
 
         if (questionCount == 0) {
 
             throw new RuntimeException(
                     "Test does not contain any questions");
+        }
+
+        if (!test.isFreeAccess()) {
+            for (TestQuestion testQuestion : testQuestions) {
+                Section section = testQuestion.getQuestion()
+                        .getSubject().getSection();
+                if (!paymentService.hasSectionAccess(userId, section)) {
+                    PaidSection paidSection = PaidSection.fromName(section.getName());
+                    throw new ForbiddenException(
+                            "Purchase Section " + paidSection
+                                    + " access before starting this test");
+                }
+            }
         }
 
         LocalDateTime startedAt =
@@ -143,14 +163,12 @@ public class TestAttemptServiceImpl
                                 new RuntimeException(
                                         "Attempt not found"));
 
-        if (attempt.getStatus()
-                != AttemptStatus.IN_PROGRESS) {
-
-            throw new RuntimeException(
-                    "Test has already been submitted");
+        if (attempt.getStatus() == AttemptStatus.COMPLETED) {
+            return mapToResult(attempt);
         }
-
-        validateTimeLimit(attempt);
+        if (attempt.getStatus() != AttemptStatus.IN_PROGRESS) {
+            throw new RuntimeException("Test cannot be submitted");
+        }
 
         List<UserAnswer> answers =
                 userAnswerRepository
@@ -168,12 +186,16 @@ public class TestAttemptServiceImpl
             if (Boolean.TRUE.equals(
                     answer.getCorrect())) {
 
-                score += question.getMarks();
+                score += question.getMarks() == null
+                        ? 0
+                        : question.getMarks();
                 correct++;
 
             } else {
 
-                score -= question.getNegativeMarks();
+                score -= question.getNegativeMarks() == null
+                        ? 0
+                        : question.getNegativeMarks();
                 incorrect++;
             }
         }
@@ -216,14 +238,90 @@ public class TestAttemptServiceImpl
                                 new RuntimeException(
                                         "Attempt not found"));
 
-        if (attempt.getStatus()
-                != AttemptStatus.COMPLETED) {
+        if (attempt.getStatus() != AttemptStatus.COMPLETED) {
 
             throw new RuntimeException(
                     "Test has not been completed");
         }
 
         return mapToResult(attempt);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<QuestionReviewResponse> getAnswerReview(
+            Long attemptId,
+            Long userId) {
+
+        TestAttempt attempt = attemptRepository
+                .findByIdAndUserId(attemptId, userId)
+                .orElseThrow(() -> new RuntimeException("Attempt not found"));
+
+        if (attempt.getStatus() != AttemptStatus.COMPLETED) {
+            throw new RuntimeException("Test has not been completed");
+        }
+
+        var savedAnswers = userAnswerRepository.findByAttemptId(attemptId)
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        answer -> answer.getQuestion().getId(),
+                        answer -> answer));
+
+        List<TestQuestion> testQuestions =
+                testQuestionRepository.findByMockTestIdOrderByQuestionOrder(
+                        attempt.getMockTest().getId());
+
+        return java.util.stream.IntStream.range(0, testQuestions.size())
+                .mapToObj(index -> {
+                    Question question = testQuestions.get(index).getQuestion();
+                    UserAnswer answer = savedAnswers.get(question.getId());
+                    Long selectedOptionId = answer == null
+                            || answer.getSelectedOption() == null
+                            ? null
+                            : answer.getSelectedOption().getId();
+                    QuestionOption correctOption = question.getOptions()
+                            .stream()
+                            .filter(QuestionOption::isCorrect)
+                            .findFirst()
+                            .orElse(null);
+                    boolean isCorrect = answer != null
+                            && Boolean.TRUE.equals(answer.getCorrect());
+                    boolean answered = selectedOptionId != null;
+                    int marksAwarded = isCorrect
+                            ? question.getMarks()
+                            : 0;
+                    int marksDeducted = answered && !isCorrect
+                            ? question.getNegativeMarks()
+                            : 0;
+
+                    List<AnswerOptionReviewResponse> options =
+                            question.getOptions().stream()
+                                    .map(option -> AnswerOptionReviewResponse.builder()
+                                            .optionId(option.getId())
+                                            .optionText(option.getOptionText())
+                                            .correct(option.isCorrect())
+                                            .selected(option.getId().equals(selectedOptionId))
+                                            .build())
+                                    .toList();
+
+                    return QuestionReviewResponse.builder()
+                            .questionId(question.getId())
+                            .questionNumber(index + 1)
+                            .questionText(question.getQuestionText())
+                            .imageUrl(question.getImageUrl())
+                            .options(options)
+                            .selectedOptionId(selectedOptionId)
+                            .correctOptionId(correctOption == null
+                                    ? null
+                                    : correctOption.getId())
+                            .explanation(question.getExplanation())
+                            .answered(answered)
+                            .correct(isCorrect)
+                            .marksAwarded(marksAwarded)
+                            .marksDeducted(marksDeducted)
+                            .build();
+                })
+                .toList();
     }
 
     @Override
@@ -242,22 +340,6 @@ public class TestAttemptServiceImpl
                 .stream()
                 .map(this::mapToHistory)
                 .toList();
-    }
-
-    private void validateTimeLimit(
-            TestAttempt attempt) {
-
-        LocalDateTime expiry =
-                attempt.getStartedAt()
-                        .plusMinutes(
-                                attempt.getMockTest()
-                                        .getDurationMinutes());
-
-        if (LocalDateTime.now().isAfter(expiry)) {
-
-            throw new RuntimeException(
-                    "Test time has expired");
-        }
     }
 
     private StudentQuestionResponse mapToStudentQuestion(
@@ -279,6 +361,7 @@ public class TestAttemptServiceImpl
                 .id(question.getId())
                 .questionText(
                         question.getQuestionText())
+                .imageUrl(question.getImageUrl())
                 .marks(question.getMarks())
                 .difficulty(
                         question.getDifficulty())
@@ -317,6 +400,18 @@ public class TestAttemptServiceImpl
                         attempt.getIncorrectAnswers())
                 .unanswered(
                         attempt.getUnanswered())
+                .totalQuestions(
+                        attempt.getCorrectAnswers()
+                                + attempt.getIncorrectAnswers()
+                                + attempt.getUnanswered())
+                .attemptedQuestions(
+                        attempt.getCorrectAnswers()
+                                + attempt.getIncorrectAnswers())
+                .timeTakenSeconds(
+                        java.time.Duration.between(
+                                attempt.getStartedAt(),
+                                attempt.getSubmittedAt())
+                                .getSeconds())
                 .percentage(percentage)
                 .passed(passed)
                 .startedAt(

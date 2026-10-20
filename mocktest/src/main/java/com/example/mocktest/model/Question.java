@@ -23,6 +23,8 @@ public class Question {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String questionText;
 
+    private String imageUrl;
+
     private String explanation;
 
     private Integer marks = 1;

@@ -108,6 +108,18 @@ public class TestAttemptController {
         );
     }
 
+    @GetMapping("/{attemptId}/review")
+    public ResponseEntity<List<QuestionReviewResponse>> getAnswerReview(
+            @PathVariable Long attemptId,
+            @AuthenticationPrincipal AuthenticatedUser user) {
+
+        return ResponseEntity.ok(
+                testAttemptService.getAnswerReview(
+                        attemptId,
+                        user.userId())
+        );
+    }
+
     @GetMapping("/history")
     public ResponseEntity<List<AttemptHistoryResponse>>
     getAttemptHistory(

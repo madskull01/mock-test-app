@@ -50,6 +50,12 @@ public class UserAnswerServiceImpl
                     "Test has already been submitted");
         }
 
+        LocalDateTime expiresAt = attempt.getStartedAt()
+                .plusMinutes(attempt.getMockTest().getDurationMinutes());
+        if (LocalDateTime.now().isAfter(expiresAt)) {
+            throw new RuntimeException("Test time has expired");
+        }
+
         Question question =
                 questionRepository
                         .findById(request.getQuestionId())

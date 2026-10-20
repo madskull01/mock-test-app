@@ -8,9 +8,11 @@ import com.example.mocktest.service.QuestionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -22,7 +24,9 @@ public class QuestionController {
 
     private final QuestionService questionService;
 
-    @PostMapping("/subjects/{subjectId}")
+    @PostMapping(
+            value = "/subjects/{subjectId}",
+            consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<AdminQuestionResponse> createQuestion(
             @PathVariable Long subjectId,
             @Valid @RequestBody CreateQuestionRequest request) {
@@ -32,6 +36,22 @@ public class QuestionController {
                         subjectId,
                         request
                 );
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(response);
+    }
+
+    @PostMapping(
+            value = "/subjects/{subjectId}",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<AdminQuestionResponse> createQuestionWithImage(
+            @PathVariable Long subjectId,
+            @Valid @RequestPart("question") CreateQuestionRequest request,
+            @RequestPart(value = "image", required = false) MultipartFile image) {
+
+        AdminQuestionResponse response =
+                questionService.createQuestion(subjectId, request, image);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)

@@ -23,6 +23,8 @@ public class MockTestResponse {
 
     private Integer passingMarks;
 
+    private boolean freeAccess;
+
     private boolean active;
 
     private Integer questionCount;

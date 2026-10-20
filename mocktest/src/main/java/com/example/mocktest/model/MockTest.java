@@ -31,6 +31,8 @@ public class MockTest {
 
     private Integer passingMarks;
 
+    private boolean freeAccess;
+
     private boolean active = true;
 
     private LocalDateTime createdAt;

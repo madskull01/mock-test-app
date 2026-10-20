@@ -26,6 +26,12 @@ public class TestResultResponse {
 
     private Integer unanswered;
 
+    private Integer totalQuestions;
+
+    private Integer attemptedQuestions;
+
+    private Long timeTakenSeconds;
+
     private Double percentage;
 
     private Boolean passed;

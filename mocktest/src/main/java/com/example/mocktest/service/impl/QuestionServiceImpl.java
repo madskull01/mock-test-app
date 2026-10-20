@@ -8,12 +8,14 @@ import com.example.mocktest.model.enums.Difficulty;
 import com.example.mocktest.repository.QuestionRepository;
 import com.example.mocktest.repository.SubjectRepository;
 import com.example.mocktest.service.QuestionService;
+import com.example.mocktest.service.QuestionImageStorageService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -24,11 +26,20 @@ public class QuestionServiceImpl implements QuestionService {
 
     private final QuestionRepository questionRepository;
     private final SubjectRepository subjectRepository;
+    private final QuestionImageStorageService questionImageStorageService;
 
     @Override
     public AdminQuestionResponse createQuestion(
             Long subjectId,
             CreateQuestionRequest request) {
+        return createQuestion(subjectId, request, null);
+    }
+
+    @Override
+    public AdminQuestionResponse createQuestion(
+            Long subjectId,
+            CreateQuestionRequest request,
+            MultipartFile image) {
 
         Subject subject = subjectRepository.findById(subjectId)
                 .orElseThrow(() ->
@@ -36,8 +47,10 @@ public class QuestionServiceImpl implements QuestionService {
 
         validateOptions(request.getOptions());
 
+        String imageUrl = questionImageStorageService.store(image);
         Question question = Question.builder()
                 .questionText(request.getQuestionText())
+                .imageUrl(imageUrl)
                 .explanation(request.getExplanation())
                 .marks(request.getMarks())
                 .negativeMarks(
@@ -65,8 +78,13 @@ public class QuestionServiceImpl implements QuestionService {
 
         question.setOptions(options);
 
-        Question savedQuestion =
-                questionRepository.save(question);
+        Question savedQuestion;
+        try {
+            savedQuestion = questionRepository.save(question);
+        } catch (RuntimeException exception) {
+            questionImageStorageService.delete(imageUrl);
+            throw exception;
+        }
 
         return mapToAdminResponse(savedQuestion);
     }
@@ -170,6 +188,7 @@ public class QuestionServiceImpl implements QuestionService {
         Question question = getEntityById(id);
 
         questionRepository.delete(question);
+        questionImageStorageService.delete(question.getImageUrl());
     }
 
     private Question getEntityById(Long id) {
@@ -220,6 +239,7 @@ public class QuestionServiceImpl implements QuestionService {
                 .id(question.getId())
                 .questionText(
                         question.getQuestionText())
+                .imageUrl(question.getImageUrl())
                 .explanation(
                         question.getExplanation())
                 .marks(question.getMarks())

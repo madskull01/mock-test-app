@@ -15,13 +15,13 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/sections")
-@PreAuthorize("hasRole('ADMIN')")
 @RequiredArgsConstructor
 public class SectionController {
 
     private final SectionService sectionService;
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<SectionResponse> createSection(
             @Valid @RequestBody CreateSectionRequest request) {
 
@@ -34,6 +34,7 @@ public class SectionController {
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<SectionResponse>> getAllSections() {
 
         return ResponseEntity.ok(
@@ -42,6 +43,7 @@ public class SectionController {
     }
 
     @GetMapping("/active")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<List<SectionResponse>>
     getActiveSections() {
 
@@ -51,6 +53,7 @@ public class SectionController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<SectionResponse> getSectionById(
             @PathVariable Long id) {
 
@@ -60,6 +63,7 @@ public class SectionController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<SectionResponse> updateSection(
             @PathVariable Long id,
             @Valid @RequestBody UpdateSectionRequest request) {
@@ -70,6 +74,7 @@ public class SectionController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteSection(
             @PathVariable Long id) {
 

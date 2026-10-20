@@ -4,6 +4,7 @@ package com.example.mocktest.service;
 import com.example.mocktest.dto.attempt.AttemptHistoryResponse;
 import com.example.mocktest.dto.attempt.StartTestResponse;
 import com.example.mocktest.dto.attempt.TestResultResponse;
+import com.example.mocktest.dto.attempt.QuestionReviewResponse;
 import com.example.mocktest.dto.mocktest.StudentTestResponse;
 import com.example.mocktest.model.TestAttempt;
 
@@ -27,6 +28,11 @@ public interface TestAttemptService {
     );
 
     TestResultResponse getResult(
+            Long attemptId,
+            Long userId
+    );
+
+    List<QuestionReviewResponse> getAnswerReview(
             Long attemptId,
             Long userId
     );

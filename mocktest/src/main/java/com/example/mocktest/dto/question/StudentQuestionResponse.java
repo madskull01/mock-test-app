@@ -14,6 +14,8 @@ public class StudentQuestionResponse {
 
     private String questionText;
 
+    private String imageUrl;
+
     private Integer marks;
 
     private Integer negativeMarks;

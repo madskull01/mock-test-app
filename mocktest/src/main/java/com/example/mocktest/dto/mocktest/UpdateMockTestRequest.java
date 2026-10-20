@@ -24,5 +24,7 @@ public class UpdateMockTestRequest {
     @Min(0)
     private Integer passingMarks;
 
+    private Boolean freeAccess;
+
     private boolean active;
 }

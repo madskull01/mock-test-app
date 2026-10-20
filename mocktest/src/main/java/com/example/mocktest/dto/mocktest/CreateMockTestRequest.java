@@ -26,4 +26,6 @@ public class CreateMockTestRequest {
     @NotNull
     @Min(0)
     private Integer passingMarks;
+
+    private boolean freeAccess;
 }

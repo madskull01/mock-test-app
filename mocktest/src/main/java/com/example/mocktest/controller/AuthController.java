@@ -2,9 +2,11 @@ package com.example.mocktest.controller;
 
 import com.example.mocktest.dto.auth.LoginRequest;
 import com.example.mocktest.dto.auth.LoginResponse;
+import com.example.mocktest.dto.auth.GoogleLoginRequest;
 import com.example.mocktest.dto.user.CreateUserRequest;
 import com.example.mocktest.dto.user.UserResponse;
 import com.example.mocktest.security.JwtService;
+import com.example.mocktest.service.GoogleLoginService;
 import com.example.mocktest.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +20,8 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final UserService userService;
-        private final JwtService jwtService;
+    private final JwtService jwtService;
+    private final GoogleLoginService googleLoginService;
 
     @PostMapping("/register")
     public ResponseEntity<UserResponse> register(
@@ -44,5 +47,11 @@ public class AuthController {
         ));
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<LoginResponse> googleLogin(
+            @Valid @RequestBody GoogleLoginRequest request) {
+        return ResponseEntity.ok(googleLoginService.login(request.getCredential()));
     }
 }
